@@ -2,7 +2,7 @@ import { spawnAndExit } from './subprocess'
 import { locker } from './locker'
 import { listener } from './listener'
 import { generator } from './generator'
-import bootstrap from './bootstrap'
+import { bootstrap } from './bootstrap'
 import { peers } from './peers'
 
 if (!spawnAndExit(__filename)) {

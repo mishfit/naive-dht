@@ -45,8 +45,9 @@ class Peers extends EventEmitter {
   
   onData (address, value) {
     // process message
+    let message = value
+    try { message = JSON.parse(message) } catch (e) { }
     const hashOfAddress = hash(address),
-          message = JSON.parse(value),
           { type, key, data } = message
 
     if (type === 'announce') {
@@ -69,6 +70,8 @@ class Peers extends EventEmitter {
 
   onDisconnect (address) {
     const hashOfAddress = hash(address)
+    delete this.sockets[hashOfAddress]
+
     if (this.bootstrapHash === hashOfAddress) {
       this.emit('bootstrap:disconnect')
       delete this.bootstrapHash
@@ -84,8 +87,6 @@ class Peers extends EventEmitter {
 
       dht.post(hashOfPeers, toBuffer(peers))
     }
-
-    delete sockets[hashOfAddress]
   }
 
   respond (address, key) {
@@ -101,19 +102,40 @@ class Peers extends EventEmitter {
   }
 
   update (addres, key, data) {
+    const bufferOfPeers = dht.get(hashOfPeers)
+    const peers = bufferOfPeers ? fromBuffer(bufferOfPeers) : {}
+
     if (key === hashOfKeys) {
-      const bufferOfPeers = dht.get(hashOfPeers)
-      const peers = bufferOfPeers ? fromBuffer(bufferOfPeers) : {}
       // add keys to peer for later retrieval upon request
       const peer = peers[hashOfAddress]
 
+      if (peer.hasOwnProperty('keys')) {
+        peer.keys[key] = data
+      } else {
+        const keys = {}
+
+        keys[key] = data
+        peer.keys = keys
+      }
     } else if (key == hashOfPeers) {
       // update peers list of peers
+      const socketPeerHashes = Object.keys(this.sockets),
+            peerCandidateHashes = Object.keys(data)
+
+      const unpeered = peerCandidateHashes.filter(p => socketPeerHashes.indexOf(p) === -1)
+
+      unpeered.forEach(p => {
+        try {
+          this.connect(data[p].address)
+        } catch (e) {
+          console.log(e)
+        }
+      })
     //} else if (key === hashOfData) {
       // 
     }
 
-    //dht.post(key, toBuffer(peers))
+    dht.post(key, toBuffer(peers))
   }
 }
 
